@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/trezor/blockbook/bchain/coins/iochain"
 	"io/ioutil"
 	"math/big"
 	"reflect"
@@ -134,6 +135,9 @@ func init() {
 	BlockChainFactories["ECash"] = ecash.NewECashRPC
 	BlockChainFactories["Avalanche"] = avalanche.NewAvalancheRPC
 	BlockChainFactories["Avalanche Archive"] = avalanche.NewAvalancheRPC
+	BlockChainFactories["Avalanche"] = avalanche.NewAvalancheRPC
+	BlockChainFactories["iochain"] = iochain.NewIochainRPC
+	BlockChainFactories["iochain_testnet"] = iochain.NewIochainRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
