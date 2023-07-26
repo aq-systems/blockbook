@@ -285,13 +285,15 @@ func (b *EthereumRPC) ethCall(data, to string) (string, error) {
 		return "", err
 	}
 	// try and load private data for eth call, but return public data if this call fails
-	var privateRes string
-	b.RPC.CallContext(ctx, &privateRes, "priv_call", b.ChainConfig.PrivacyGroupId, map[string]interface{}{
-		"data": data,
-		"to":   to,
-	}, "latest")
-	if privateRes != "0x" {
-		return privateRes, nil
+	for _, pGroupId := range b.ChainConfig.PrivacyGroupIds {
+		var privateRes string
+		b.RPC.CallContext(ctx, &privateRes, "priv_call", pGroupId, map[string]interface{}{
+			"data": data,
+			"to":   to,
+		}, "latest")
+		if privateRes != "0x" {
+			return privateRes, nil
+		}
 	}
 	return r, nil
 }

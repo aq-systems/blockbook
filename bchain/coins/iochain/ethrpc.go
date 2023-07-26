@@ -36,18 +36,18 @@ const (
 
 // Configuration represents json config file
 type Configuration struct {
-	CoinName                        string `json:"coin_name"`
-	CoinShortcut                    string `json:"coin_shortcut"`
-	RPCURL                          string `json:"rpc_url"`
-	RPCTimeout                      int    `json:"rpc_timeout"`
-	BlockAddressesToKeep            int    `json:"block_addresses_to_keep"`
-	AddressAliases                  bool   `json:"address_aliases,omitempty"`
-	MempoolTxTimeoutHours           int    `json:"mempoolTxTimeoutHours"`
-	QueryBackendOnMempoolResync     bool   `json:"queryBackendOnMempoolResync"`
-	ProcessInternalTransactions     bool   `json:"processInternalTransactions"`
-	ProcessZeroInternalTransactions bool   `json:"processZeroInternalTransactions"`
-	ConsensusNodeVersionURL         string `json:"consensusNodeVersion"`
-	PrivacyGroupId                  string `json:"privacy_group_id"`
+	CoinName                        string   `json:"coin_name"`
+	CoinShortcut                    string   `json:"coin_shortcut"`
+	RPCURL                          string   `json:"rpc_url"`
+	RPCTimeout                      int      `json:"rpc_timeout"`
+	BlockAddressesToKeep            int      `json:"block_addresses_to_keep"`
+	AddressAliases                  bool     `json:"address_aliases,omitempty"`
+	MempoolTxTimeoutHours           int      `json:"mempoolTxTimeoutHours"`
+	QueryBackendOnMempoolResync     bool     `json:"queryBackendOnMempoolResync"`
+	ProcessInternalTransactions     bool     `json:"processInternalTransactions"`
+	ProcessZeroInternalTransactions bool     `json:"processZeroInternalTransactions"`
+	ConsensusNodeVersionURL         string   `json:"consensusNodeVersion"`
+	PrivacyGroupIds                 []string `json:"privacy_group_ids"`
 }
 
 // EthereumRPC is an interface to JSON-RPC eth service.
@@ -542,6 +542,7 @@ func (b *EthereumRPC) processEventsForBlock(blockNumber string) (map[string][]*b
 	defer cancel()
 	var logs []rpcLogWithTxHash
 	var ensRecords []bchain.AddressAliasRecord
+	// get logs for public transactions
 	err := b.RPC.CallContext(ctx, &logs, "eth_getLogs", map[string]interface{}{
 		"fromBlock": blockNumber,
 		"toBlock":   blockNumber,
@@ -549,25 +550,21 @@ func (b *EthereumRPC) processEventsForBlock(blockNumber string) (map[string][]*b
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "eth_getLogs blockNumber %v", blockNumber)
 	}
-	var pLogs []rpcLogWithTxHash
-	err = b.RPC.CallContext(ctx, &pLogs, "priv_getLogs", b.ChainConfig.PrivacyGroupId, map[string]interface{}{
-		"fromBlock": blockNumber,
-		"toBlock":   blockNumber,
-	})
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "priv_getLogs blockNumber %v", blockNumber)
+	// get logs for each privacy group todo: perhaps make this run in parallel
+	for _, pGroup := range b.ChainConfig.PrivacyGroupIds {
+		var pLogs []rpcLogWithTxHash
+		err = b.RPC.CallContext(ctx, &pLogs, "priv_getLogs", pGroup, map[string]interface{}{
+			"fromBlock": blockNumber,
+			"toBlock":   blockNumber,
+		})
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "priv_getLogs blockNumber %v", blockNumber)
+		}
+		logs = append(logs, pLogs...)
 	}
 	r := make(map[string][]*bchain.RpcLog)
 	for i := range logs {
 		l := &logs[i]
-		r[l.Hash] = append(r[l.Hash], &l.RpcLog)
-		ens := getEnsRecord(l)
-		if ens != nil {
-			ensRecords = append(ensRecords, *ens)
-		}
-	}
-	for i := range pLogs {
-		l := &pLogs[i]
 		r[l.Hash] = append(r[l.Hash], &l.RpcLog)
 		ens := getEnsRecord(l)
 		if ens != nil {
@@ -1021,18 +1018,11 @@ func (b *EthereumRPC) EthereumTypeGetBalance(addrDesc bchain.AddressDescriptor) 
 	return b.Client.BalanceAt(ctx, addrDesc, nil)
 }
 
+// EthereumTypeGetNonce returns current balance of an address
 func (b *EthereumRPC) EthereumTypeGetNonce(addrDesc bchain.AddressDescriptor) (uint64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.Timeout)
 	defer cancel()
-	var raw json.RawMessage
-	if err := b.RPC.CallContext(ctx, &raw, "priv_getTransactionCount", ethcommon.BytesToAddress(addrDesc), b.ChainConfig.PrivacyGroupId); err != nil {
-		return 0, errors.Annotatef(err, "raw result %v", raw)
-	}
-	var result string
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return 0, errors.Annotatef(err, "raw result %v", raw)
-	}
-	return hexutil.DecodeUint64(result)
+	return b.Client.NonceAt(ctx, addrDesc, nil)
 }
 
 // GetChainParser returns ethereum BlockChainParser
