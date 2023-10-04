@@ -450,11 +450,14 @@ func (b *EthereumRPC) GetBestBlockHash() (string, error) {
 
 // GetBestBlockHeight returns height of the tip of the best-block-chain
 func (b *EthereumRPC) GetBestBlockHeight() (uint32, error) {
-	h, err := b.getBestHeader()
+	ctx, cancel := context.WithTimeout(context.Background(), b.Timeout)
+	defer cancel()
+	var head *types.Header
+	err := b.RPC.CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false)
 	if err != nil {
 		return 0, err
 	}
-	return uint32(h.Number().Uint64()), nil
+	return uint32(head.Number.Uint64()), nil
 }
 
 // GetBlockHash returns hash of block in best-block-chain at given height
