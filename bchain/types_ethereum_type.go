@@ -126,8 +126,8 @@ type RpcReceipt struct {
 	Status          string    `json:"status"`
 	PrivateFrom     string    `json:"privateFrom,omitempty"`
 	PrivacyGroupId  string    `json:"privacyGroupId,omitempty"`
-	RevertReason    string    `json:"revertReason,omitempty"`
 	ContractAddress string    `json:"contractAddress,omitempty"`
+	RevertReason    string    `json:"revertReason,omitempty"`
 	Logs            []*RpcLog `json:"logs"`
 }
 
