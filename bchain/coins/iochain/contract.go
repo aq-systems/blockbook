@@ -284,6 +284,10 @@ func (b *EthereumRPC) ethCall(data, to string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if r != "0x" {
+		// 0x is returned always
+		return r, nil
+	}
 	// try and load private data for eth call, but return public data if this call fails
 	for _, pGroupId := range b.ChainConfig.PrivacyGroupIds {
 		var privateRes string
