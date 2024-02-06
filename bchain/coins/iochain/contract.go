@@ -354,7 +354,8 @@ func (b *EthereumRPC) GetContractInfo(contractDesc bchain.AddressDescriptor) (*b
 func (b *EthereumRPC) EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc bchain.AddressDescriptor) (*big.Int, error) {
 	addr := hexutil.Encode(addrDesc)
 	contract := hexutil.Encode(contractDesc)
-	req := contractBalanceOfSignature + "000000000000000000000000"[len(addr)-2:] + addr[2:]
+	strippedAddress := addr[len(addr)-40:]
+	req := contractBalanceOfSignature + "000000000000000000000000" + strippedAddress
 	data, err := b.ethCall(req, contract)
 	if err != nil {
 		return nil, err
