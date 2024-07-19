@@ -2,17 +2,15 @@ package eth
 
 import (
 	"encoding/hex"
-	"encoding/json"
-	"github.com/golang/glog"
 	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/golang/protobuf/proto"
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
 	"golang.org/x/crypto/sha3"
+	"google.golang.org/protobuf/proto"
 )
 
 // EthereumTypeAddressDescriptorLen - the AddressDescriptor of EthereumType has fixed length
@@ -333,6 +331,24 @@ func (p *EthereumParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) (
 
 		}
 		pt.Receipt.Log = ptLogs
+		if r.Receipt.L1Fee != "" {
+			if pt.Receipt.L1Fee, err = hexDecodeBig(r.Receipt.L1Fee); err != nil {
+				return nil, errors.Annotatef(err, "L1Fee %v", r.Receipt.L1Fee)
+			}
+		}
+		if r.Receipt.L1FeeScalar != "" {
+			pt.Receipt.L1FeeScalar = []byte(r.Receipt.L1FeeScalar)
+		}
+		if r.Receipt.L1GasPrice != "" {
+			if pt.Receipt.L1GasPrice, err = hexDecodeBig(r.Receipt.L1GasPrice); err != nil {
+				return nil, errors.Annotatef(err, "L1GasPrice %v", r.Receipt.L1GasPrice)
+			}
+		}
+		if r.Receipt.L1GasUsed != "" {
+			if pt.Receipt.L1GasUsed, err = hexDecodeBig(r.Receipt.L1GasUsed); err != nil {
+				return nil, errors.Annotatef(err, "L1GasUsed %v", r.Receipt.L1GasUsed)
+			}
+		}
 	}
 	return proto.Marshal(pt)
 }
@@ -361,27 +377,37 @@ func (p *EthereumParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	}
 	var rr *bchain.RpcReceipt
 	if pt.Receipt != nil {
-		logs := make([]*bchain.RpcLog, len(pt.Receipt.Log))
+		rr = &bchain.RpcReceipt{
+			GasUsed: hexEncodeBig(pt.Receipt.GasUsed),
+			Status:  "",
+			Logs:    make([]*bchain.RpcLog, len(pt.Receipt.Log)),
+		}
 		for i, l := range pt.Receipt.Log {
 			topics := make([]string, len(l.Topics))
 			for j, t := range l.Topics {
 				topics[j] = hexutil.Encode(t)
 			}
-			logs[i] = &bchain.RpcLog{
+			rr.Logs[i] = &bchain.RpcLog{
 				Address: EIP55Address(l.Address),
 				Data:    hexutil.Encode(l.Data),
 				Topics:  topics,
 			}
 		}
-		status := ""
 		// handle a special value []byte{'U'} as unknown state
 		if len(pt.Receipt.Status) != 1 || pt.Receipt.Status[0] != 'U' {
-			status = hexEncodeBig(pt.Receipt.Status)
+			rr.Status = hexEncodeBig(pt.Receipt.Status)
 		}
-		rr = &bchain.RpcReceipt{
-			GasUsed: hexEncodeBig(pt.Receipt.GasUsed),
-			Status:  status,
-			Logs:    logs,
+		if len(pt.Receipt.L1Fee) > 0 {
+			rr.L1Fee = hexEncodeBig(pt.Receipt.L1Fee)
+		}
+		if len(pt.Receipt.L1FeeScalar) > 0 {
+			rr.L1FeeScalar = string(pt.Receipt.L1FeeScalar)
+		}
+		if len(pt.Receipt.L1GasPrice) > 0 {
+			rr.L1GasPrice = hexEncodeBig(pt.Receipt.L1GasPrice)
+		}
+		if len(pt.Receipt.L1GasUsed) > 0 {
+			rr.L1GasUsed = hexEncodeBig(pt.Receipt.L1GasUsed)
 		}
 	}
 	// TODO handle internal transactions
@@ -479,12 +505,16 @@ const (
 
 // EthereumTxData contains ethereum specific transaction data
 type EthereumTxData struct {
-	Status   TxStatus `json:"status"` // 1 OK, 0 Fail, -1 pending, -2 unknown
-	Nonce    uint64   `json:"nonce"`
-	GasLimit *big.Int `json:"gaslimit"`
-	GasUsed  *big.Int `json:"gasused"`
-	GasPrice *big.Int `json:"gasprice"`
-	Data     string   `json:"data"`
+	Status      TxStatus `json:"status"` // 1 OK, 0 Fail, -1 pending, -2 unknown
+	Nonce       uint64   `json:"nonce"`
+	GasLimit    *big.Int `json:"gaslimit"`
+	GasUsed     *big.Int `json:"gasused"`
+	GasPrice    *big.Int `json:"gasprice"`
+	L1Fee       *big.Int `json:"l1Fee,omitempty"`
+	L1FeeScalar string   `json:"l1FeeScalar,omitempty"`
+	L1GasPrice  *big.Int `json:"l1GasPrice,omitempty"`
+	L1GasUsed   *big.Int `json:"L1GasUsed,omitempty"`
+	Data        string   `json:"data"`
 }
 
 // GetEthereumTxData returns EthereumTxData from bchain.Tx
@@ -494,27 +524,29 @@ func GetEthereumTxData(tx *bchain.Tx) *EthereumTxData {
 
 // GetEthereumTxDataFromSpecificData returns EthereumTxData from coinSpecificData
 func GetEthereumTxDataFromSpecificData(coinSpecificData interface{}) *EthereumTxData {
-	txt, _ := json.Marshal(coinSpecificData)
 	etd := EthereumTxData{Status: TxStatusPending}
-	var csd bchain.EthereumSpecificData
-	err := json.Unmarshal(txt, &csd)
-	if err != nil {
-		glog.Error("Failed to cast coinSpecificData: ", err)
-	}
-	if csd.Tx != nil {
-		etd.Nonce, _ = hexutil.DecodeUint64(csd.Tx.AccountNonce)
-		etd.GasLimit, _ = hexutil.DecodeBig(csd.Tx.GasLimit)
-		etd.GasPrice, _ = hexutil.DecodeBig(csd.Tx.GasPrice)
-		etd.Data = csd.Tx.Payload
-	}
-	if csd.Receipt != nil {
-		switch csd.Receipt.Status {
-		case "0x1":
-			etd.Status = TxStatusOK
-		case "": // old transactions did not set status
-			etd.Status = TxStatusUnknown
-		default:
-			etd.Status = TxStatusFailure
+	csd, ok := coinSpecificData.(bchain.EthereumSpecificData)
+	if ok {
+		if csd.Tx != nil {
+			etd.Nonce, _ = hexutil.DecodeUint64(csd.Tx.AccountNonce)
+			etd.GasLimit, _ = hexutil.DecodeBig(csd.Tx.GasLimit)
+			etd.GasPrice, _ = hexutil.DecodeBig(csd.Tx.GasPrice)
+			etd.Data = csd.Tx.Payload
+		}
+		if csd.Receipt != nil {
+			switch csd.Receipt.Status {
+			case "0x1":
+				etd.Status = TxStatusOK
+			case "": // old transactions did not set status
+				etd.Status = TxStatusUnknown
+			default:
+				etd.Status = TxStatusFailure
+			}
+			etd.GasUsed, _ = hexutil.DecodeBig(csd.Receipt.GasUsed)
+			etd.L1Fee, _ = hexutil.DecodeBig(csd.Receipt.L1Fee)
+			etd.L1GasPrice, _ = hexutil.DecodeBig(csd.Receipt.L1GasPrice)
+			etd.L1GasUsed, _ = hexutil.DecodeBig(csd.Receipt.L1GasUsed)
+			etd.L1FeeScalar = csd.Receipt.L1FeeScalar
 		}
 		etd.GasUsed, _ = hexutil.DecodeBig(csd.Receipt.GasUsed)
 	}
