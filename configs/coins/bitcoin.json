@@ -22,10 +22,10 @@
         "package_name": "backend-bitcoin",
         "package_revision": "satoshilabs-1",
         "system_user": "bitcoin",
-        "version": "24.1",
-        "binary_url": "https://bitcoincore.org/bin/bitcoin-core-24.1/bitcoin-24.1-x86_64-linux-gnu.tar.gz",
+        "version": "27.1",
+        "binary_url": "https://bitcoincore.org/bin/bitcoin-core-27.1/bitcoin-27.1-x86_64-linux-gnu.tar.gz",
         "verification_type": "sha256",
-        "verification_source": "c112af3d19cca7f5b5f942708ca4d522110d8e1dc1c0f8d3077f531c94e5f00f",
+        "verification_source": "c9840607d230d65f6938b81deaec0b98fe9cb14c3a41a5b13b2c05d044a48422",
         "extract_command": "tar -C backend --strip 1 -xf",
         "exclude_files": ["bin/bitcoin-qt"],
         "exec_command_template": "{{.Env.BackendInstallPath}}/{{.Coin.Alias}}/bin/bitcoind -datadir={{.Env.BackendDataPath}}/{{.Coin.Alias}}/backend -conf={{.Env.BackendInstallPath}}/{{.Coin.Alias}}/{{.Coin.Alias}}.conf -pid=/run/{{.Coin.Alias}}/{{.Coin.Alias}}.pid",
@@ -38,12 +38,13 @@
         "server_config_file": "bitcoin.conf",
         "client_config_file": "bitcoin_client.conf",
         "additional_params": {
-            "deprecatedrpc": "estimatefee"
+            "deprecatedrpc": "estimatefee",
+            "addnode": ["ove.palatinus.cz"]
         },
         "platforms": {
             "arm64": {
-                "binary_url": "https://bitcoincore.org/bin/bitcoin-core-24.1/bitcoin-24.1-aarch64-linux-gnu.tar.gz",
-                "verification_source": "69ef67b290ce05120d8a5a5a5c0aa3e7d4878838286e6dc96935d15fc0d44b56"
+                "binary_url": "https://bitcoincore.org/bin/bitcoin-core-27.1/bitcoin-27.1-aarch64-linux-gnu.tar.gz",
+                "verification_source": "bb878df4f8ff8fb8acfb94207c50f959c462c39e652f507c2a2db20acc6a1eee"
             }
         }
     },
@@ -63,13 +64,17 @@
             "xpub_magic_segwit_p2sh": 77429938,
             "xpub_magic_segwit_native": 78792518,
             "additional_params": {
-                "alternative_estimate_fee": "whatthefee-disabled",
-                "alternative_estimate_fee_params": "{\"url\": \"https://whatthefee.io/data.json\", \"periodSeconds\": 60}",
+                "alternative_estimate_fee": "mempoolspace",
+                "alternative_estimate_fee_params": "{\"url\": \"https://mempool.space/api/v1/fees/recommended\", \"periodSeconds\": 20}",
                 "fiat_rates": "coingecko",
                 "fiat_rates_vs_currencies": "AED,ARS,AUD,BDT,BHD,BMD,BRL,CAD,CHF,CLP,CNY,CZK,DKK,EUR,GBP,HKD,HUF,IDR,ILS,INR,JPY,KRW,KWD,LKR,MMK,MXN,MYR,NGN,NOK,NZD,PHP,PKR,PLN,RUB,SAR,SEK,SGD,THB,TRY,TWD,UAH,USD,VEF,VND,ZAR,BTC,ETH",
-                "fiat_rates_params": "{\"coin\": \"bitcoin\", \"periodSeconds\": 900}",
-                "golomb_filter_p": 20,
-                "mempool_filter_scripts": "taproot"
+                "fiat_rates_params": "{\"coin\": \"bitcoin\", \"periodSeconds\": 60}",
+                "block_golomb_filter_p": 20,
+                "block_filter_scripts": "taproot-noordinals",
+                "block_filter_use_zeroed_key": true,
+                "mempool_golomb_filter_p": 20,
+                "mempool_filter_scripts": "taproot",
+                "mempool_filter_use_zeroed_key": false
             }
         }
     },
