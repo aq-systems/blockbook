@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/schancel/cashaddr-converter v0.0.0-20181111022653-4769e7add95a
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.31.0
 	google.golang.org/protobuf v1.33.0
 )
 
@@ -90,7 +90,7 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
